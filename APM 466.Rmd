@@ -1,0 +1,174 @@
+---
+title: "Apm 466 A1"
+author: "Ziqin Zhou"
+date: "2022/2/14"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=F, message=F, warning=F, out.width="80%", out.height="80%"}
+library(jrvFinance)
+library(readxl)
+library(tidyverse)
+library(knitr)
+library(lubridate)
+library(rmarkdown)
+library(readr)
+library(dbplyr)
+library(SciViews)
+library(data.table)
+```
+
+```{r, echo=F, message=F, warning=F, out.width="80%", out.height="80%"}
+# read the selected data
+bond_data = read_excel("/Users/Marky/Desktop/apm466 a1/466selected.xlsx")
+
+# construct the matrix for the data
+bond_matrix = matrix( c(bond_data$'day1', bond_data$'day2', bond_data$'day3', bond_data$'day4', bond_data$'day5', bond_data$'day6', bond_data$'day7', bond_data$'day8', bond_data$'day9',bond_data$'day10'), nrow=10, ncol=10, byrow = TRUE)
+
+CD_data = data.frame(bond_matrix)
+```
+
+```{r, echo=F, message=F, warning=F, out.width="80%", out.height="80%"}
+# get the maturity date
+m_date =c("2022-03-01","2022-08-01","2023-03-01","2023-08-01","2024-03-01","2024-09-01","2025-03-01","2025-09-01","2026-03-01","2026-09-01")
+
+# we generate numeric value for coupon
+coupon_rate = as.numeric(bond_data$coupon)
+
+# the closed price date
+date = c("2022-1-10","2022-1-11","2022-1-12","2022-1-13","2022-1-14","2022-1-17","2022-1-18","2022-1-19","2022-1-20","2022-1-21")
+
+# calculate the dirty price
+DP = matrix('numeric', nrow=10, ncol=10)
+for(i in 1:10){
+  for(j in 1:10){
+    TCF_bond =  bond.TCF(settle = date[i], mature = m_date[j], coupon = coupon_rate[j], freq = 2)                      # the bond.TCF function will give us the accrued interest
+    DP[i,j] = TCF_bond$accrued + bond_matrix[i,j] 
+  }
+}
+
+# To calculate YTM:
+YTM = matrix('numeric',nrow = 10, ncol = 10, byrow = TRUE)
+for (j in 1:10) {
+  bond_close = bond_matrix[,j]
+  for (i in 1:10){
+    YTM[i,j] = bond.yield(settle = date[i], mature = m_date[j], coupon = coupon_rate[j], freq = 2, bond_close[i], convention = "ACT/ACT", comp.freq = 2, redemption_value = 100)
+  }
+}
+```
+
+```{r, echo=F, message=F, warning=F, out.width="80%", out.height="80%"}
+years = c(seq(0.5, 5, 0.5))
+plot(years, YTM[1,], type = "l", main = "Curve for 5-year YTM", xlab = "Years", ylab = "Yield to maturity", col = "black", ylim = c(0.002, 0.0185))
+colors = c("#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0", "#92C5DE", "#4393C3", "#2166AC", "purple", "blue")
+for (i in 2:10) {
+  lines(years, YTM[i,], col = colors[i-1], type = "l")
+}
+legend("bottomright", pch = c(15,15), 
+      legend = c("2022-1-10", "2022-1-11", "2022-1-12", "2022-1-13", "2022-1-14", "2022-1-17", "2022-1-18", "2022-1-19", "2022-1-20", "2022-1-21"),
+       col= c("black", colors), lty=1.2, cex=0.5)
+
+```
+
+```{r, echo=F, message=F, warning=F, out.width="80%", out.height="80%"}
+
+# read the selected data
+dirty_data = read_excel("/Users/Marky/Desktop/apm466 a1/466_dirty.xlsx")
+dirty_matrix = matrix( c(dirty_data$'day1', dirty_data$'day2', dirty_data$'day3', dirty_data$'day4', dirty_data$'day5', dirty_data$'day6', dirty_data$'day7', dirty_data$'day8', dirty_data$'day9',dirty_data$'day10'), nrow=10, ncol=10, byrow = TRUE)
+
+dp_data = data.frame(dirty_matrix)
+
+# generate the date
+TM_date = matrix(nrow=10,ncol=10)
+for (i in 1:10){
+  for (j in 1:10){
+    chosen_date = as.Date(m_date[i])
+    TM_date[i,j] = as.numeric(as.Date(chosen) - as.Date(date[j]))/365
+  }
+  append(c(),TM_date)
+}
+TM_date_data=data.frame(TM_date)
+
+colnames(TM_date_data)<-date[1:10] 
+
+```
+
+```{r, echo=F, message=F, warning=F, out.width="80%", out.height="80%"}
+# we created the spot rate
+Spot_rate <- matrix(nrow=10,ncol=10)
+for (i in 1:10){
+  Spot_rate[i,] = -2*log(dp_data[,i]/(coupon_rate[,i] + 100))
+    for(j in 2:10){
+    sum = 0
+    for (k in 1:(j-1)){
+      sum = sum + coupon_rate[j,] * exp(-Spot_rate[i,k]*(0.5*k))
+    }
+    value = 100
+    Spot_rate[i,j] <- log((dp_data[,j]- sum)/
+                            (coupon_rate[j] + value))/
+      ((-1/2)*j)
+  }
+}
+
+x = c(0.5,1,1.5,2,2.5,3,3.5,4,4.5,5)
+plot(x, Spot_rate[1,], type = "l", main = "Curve for 5-year Spot rate", xlab = "Years", ylab = "Spot rate", col = "black", ylim = c(0.001, 0.032))
+colors = c("#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0", "#92C5DE", "#4393C3", "#2166AC", "purple", "blue")
+for (i in 2:10) {
+  lines(x, Spot_rate[i,], col = colors[i-1], type = "l")
+}
+legend("bottomright", pch = c(15,15), 
+      legend = c("2022-1-10", "2022-1-11", "2022-1-12", "2022-1-13", "2022-1-14", "2022-1-17", "2022-1-18", "2022-1-19", "2022-1-20", "2022-1-21"),
+       col= c("black", colors), lty=1.2, cex=0.5)
+
+```
+
+
+```{r, echo=F, message=F, warning=F, out.width="80%", out.height="80%"}
+forward_rate = data.frame(matrix(nrow = 4, ncol = 10))
+for (j in c(1:4)) {
+  for (i in c(1:10))  {
+    x1=(1 + Spot_rate[2*j, i] / 2 )^ ( 2*j )
+    y1=(1+Spot_rate[2+2*j,i]/2)^(2 + 2*j )
+    forward_rate[j,i]=2*((y1/x1)^(1/2)-1)
+  }
+}
+
+YTM <-matrix(nrow=10, ncol=10)
+for (j in 1:10){
+  for (i in 1:10) {
+    YTM[i,j]= bond.yield( settle=Price_date[i], mature=DATA$maturity.date[j], coupon_payment[j], freq=2, price=Clean_price[i,j], comp.freq=2, redemption_value=100)
+  }
+}
+
+k = rep(1:9)
+yield_data = data.frame(k,k,k,k,k)
+for (i in 1:9){
+  for(j in 1:5){
+  yield_data[i,j]=log(YTM[2*j,i+1]/YTM[2*j,i])
+  }
+}
+colnames(yield_data) = c("log of 1-year yield", "log of 2-year yield", "log of 3-year yield", "log of 4-year yield", "log of 5-year yield")
+yield_covariance = cov(yield_data, yield_data)
+print(yield_covariance)
+
+forward_data = data.frame(t(log(forward_rate[, 1:9] / forward_rate[, 2:10])))
+colnames(forward_data) = c("log of 1-year forward", "log of 2-year forward", "log of 3-year forward", "log of 4-year forward")
+forward_covariance = cov(forward_data, forward_data)
+print(forward_covariance)
+
+
+```
+
+```{r, echo=F, message=F, warning=F, out.width="80%", out.height="80%"}
+print(eigen(yield_covariance)$values)
+print(eigen(yield_covariance)$vectors)
+```
+
+```{r, echo=F, message=F, warning=F, out.width="80%", out.height="80%"}
+print(eigen(forward_covariance)$values)
+print(eigen(forward_covariance)$vectors)
+```
