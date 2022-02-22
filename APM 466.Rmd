@@ -137,18 +137,11 @@ for (j in c(1:4)) {
   }
 }
 
-YTM <-matrix(nrow=10, ncol=10)
-for (j in 1:10){
-  for (i in 1:10) {
-    YTM[i,j]= bond.yield( settle=Price_date[i], mature=DATA$maturity.date[j], coupon_payment[j], freq=2, price=Clean_price[i,j], comp.freq=2, redemption_value=100)
-  }
-}
-
-k = rep(1:9)
-yield_data = data.frame(k,k,k,k,k)
+f = rep(1:9)
+yield_data = data.frame(f,f,f,f,f)
 for (i in 1:9){
   for(j in 1:5){
-  yield_data[i,j]=log(YTM[2*j,i+1]/YTM[2*j,i])
+  yield_data[i,j] = log(YTM[2*j,i + 1] / YTM[2*j,i])
   }
 }
 colnames(yield_data) = c("log of 1-year yield", "log of 2-year yield", "log of 3-year yield", "log of 4-year yield", "log of 5-year yield")
